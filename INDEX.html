@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지출 전용 가계부 (Firebase 연동)</title>
+    <style>
+        /* 기본 스타일 및 폰트 설정 */
+        body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #333; margin-bottom: 20px; }
+        
+        /* 요약 카드 스타일 */
+        .summary { display: flex; margin-bottom: 25px; text-align: center; }
+        .summary div { flex: 1; padding: 20px 10px; border-radius: 8px; color: white; font-weight: bold; font-size: 16px; }
+        .summary span { display: block; font-size: 28px; margin-top: 8px; }
+        .expense { background-color: #ef4444; }
+
+        /* 입력 폼 스타일 */
+        form { display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px; background-color: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+        .form-row { display: flex; gap: 10px; }
+        .form-row > * { flex: 1; }
+        
+        input, select, button { padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background-color: white; box-sizing: border-box; }
+        input:focus, select:focus { outline: none; border-color: #ef4444; }
+        button[type="submit"] { background-color: #333; color: white; cursor: pointer; border: none; font-weight: bold; font-size: 15px; transition: background-color 0.2s; margin-top: 5px; padding: 14px; }
+        button[type="submit"]:hover { background-color: #555; }
+        button[type="submit"].edit-mode { background-color: #2563eb; }
+
+        /* 리스트 및 그리드(표) 스타일 */
+        h3 { margin-bottom: 15px; color: #444; }
+        
+        .grid-row { display: grid; grid-template-columns: 95px 120px 110px 1fr 1fr 100px 90px; gap: 10px; align-items: center; }
+        .list-header { font-weight: bold; color: #666; background-color: #f1f5f9; padding: 12px 10px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; text-align: center; }
+        .list { list-style-type: none; padding: 0; margin: 0; }
+        .list li { padding: 12px 10px; border-bottom: 1px solid #eee; font-size: 13px; text-align: center; }
+        .list li:last-child { border-bottom: none; }
+        
+        .date { color: #888; font-size: 13px; }
+        .card-badge { font-size: 12px; color: #555; background-color: #f1f1f1; padding: 5px 8px; border-radius: 4px; white-space: nowrap; display: inline-block; }
+        .category-badge { font-size: 12px; color: #2563eb; background-color: #dbeafe; padding: 5px 8px; border-radius: 4px; white-space: nowrap; display: inline-block; }
+        .store, .item { text-align: left; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .amount { font-weight: bold; text-align: right; color: #ef4444; }
+        
+        .action-btns { display: flex; gap: 4px; justify-content: center; }
+        .edit-btn { background-color: #10b981; color: white; border: none; padding: 6px 8px; cursor: pointer; border-radius: 4px; font-size: 12px; flex: 1; }
+        .delete-btn { background-color: #ff4d4d; color: white; border: none; padding: 6px 8px; cursor: pointer; border-radius: 4px; font-size: 12px; flex: 1; }
+        
+        .cancel-btn { background-color: #888; color: white; border: none; cursor: pointer; border-radius: 6px; font-weight: bold; padding: 14px; font-size: 15px; display: none; margin-top: 5px; }
+        .cancel-btn.show { display: block; }
+        #loading { text-align: center; padding: 20px; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💸 지출 전용 가계부 (클라우드)</h1>
+        
+        <div class="summary">
+            <div class="expense">총 지출<span><b id="total-expense">0</b>원</span></div>
+        </div>
+
+        <form id="form">
+            <div class="form-row">
+                <input type="date" id="date" required>
+                <select id="card" required>
+                    <option value="현대카드(이원찬)">1. 현대카드(이원찬)</option>
+                    <option value="현대카드(최옥경)">2. 현대카드(최옥경)</option>
+                    <option value="우리카드(이원찬)">3. 우리카드(이원찬)</option>
+                    <option value="롯데카드(이원찬)">4. 롯데카드(이원찬)</option>
+                </select>
+            </div>
+            
+            <div class="form-row">
+                <select id="category" required>
+                    <option value="" disabled selected>분류 선택</option>
+                    <option value="식비">식비</option>
+                    <option value="주유비">주유비</option>
+                    <option value="교통비">교통비</option>
+                    <option value="장모님심부름">장모님심부름</option>
+                    <option value="개인지출(이원찬)">개인지출(이원찬)</option>
+                    <option value="개인지출(최옥경)">개인지출(최옥경)</option>
+                    <option value="기타">기타</option>
+                </select>
+                <input type="text" id="store" placeholder="구매처 입력 (예: 이마트, 주유소)" required>
+            </div>
+
+            <div class="form-row">
+                <input type="text" id="item" placeholder="구매 품목 입력 (예: 라면, 우유, 주유)" required>
+                <input type="number" id="amount" placeholder="지출 금액 (원)" required min="1">
+            </div>
+
+            <div class="form-row">
+                <button type="submit" id="submit-btn">지출 내역 추가하기</button>
+                <button type="button" id="cancel-btn" class="cancel-btn" onclick="cancelEdit()">수정 취소</button>
+            </div>
+        </form>
+
+        <h3>지출 내역</h3>
+        <div class="list-header grid-row">
+            <div>날짜</div>
+            <div>결제 카드</div>
+            <div>지출 분류</div>
+            <div>구매처</div>
+            <div>구매 품목</div>
+            <div style="text-align: right;">금액</div>
+            <div>관리</div>
+        </div>
+
+        <div id="loading">데이터를 불러오는 중입니다...</div>
+        <ul class="list" id="list"></ul>
+    </div>
+
+    <!-- Firebase SDK (일반 스크립트 호환 버전 - 로컬 파일에서 에러 안 남) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    
+    <script>
+        // ==========================================
+        // 🚨 여기에 사용자님의 Firebase 설정값을 붙여넣으세요!
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyC11qXYFB6tOjsUu5oCmFI5-sDhjgWmKjs",
+            authDomain: "household-ledger-5a28a.firebaseapp.com",
+            databaseURL: "https://household-ledger-5a28a-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "household-ledger-5a28a",
+            storageBucket: "household-ledger-5a28a.firebasestorage.app",
+            messagingSenderId: "410312751551",
+            appId: "1:410312751551:web:a7ac6cb9fbab736faf890a"
+        };
+
+        // Firebase 초기화 (호환 문법)
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // DOM 요소
+        const form = document.getElementById('form');
+        const dateEl = document.getElementById('date');
+        const cardEl = document.getElementById('card');
+        const categoryEl = document.getElementById('category');
+        const storeEl = document.getElementById('store');
+        const itemEl = document.getElementById('item');
+        const amountEl = document.getElementById('amount');
+        const listEl = document.getElementById('list');
+        const totalExpenseEl = document.getElementById('total-expense');
+        const loadingEl = document.getElementById('loading');
+        
+        const submitBtn = document.getElementById('submit-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+
+        let transactions = [];
+        let editingId = null;
+
+        // 날짜 기본값을 오늘로 설정
+        const today = new Date();
+        const offset = today.getTimezoneOffset() * 60000;
+        dateEl.value = (new Date(today - offset)).toISOString().split('T')[0];
+
+        // 1. Firebase에서 실시간 데이터 불러오기 (호환 문법)
+        db.collection('expenses')
+            .orderBy('date', 'desc')
+            .orderBy('createdAt', 'desc')
+            .onSnapshot((snapshot) => {
+                transactions = [];
+                snapshot.forEach((doc) => {
+                    transactions.push({ id: doc.id, ...doc.data() });
+                });
+                loadingEl.style.display = 'none';
+                updateDOM();
+                updateValues();
+            }, (error) => {
+                console.error("데이터를 불러오는 중 에러 발생:", error);
+                loadingEl.innerText = "데이터를 불러올 수 없습니다. Firebase 설정을 확인해주세요.";
+            });
+
+        // 2. 폼 제출 이벤트
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault(); // 새로고침 방지
+
+            const transactionData = {
+                date: dateEl.value,
+                card: cardEl.value,
+                category: categoryEl.value, 
+                store: storeEl.value,
+                item: itemEl.value,
+                amount: parseInt(amountEl.value)
+            };
+
+            try {
+                if (editingId) {
+                    // 수정
+                    await db.collection('expenses').doc(editingId).update(transactionData);
+                    cancelEdit();
+                } else {
+                    // 새로 추가
+                    transactionData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await db.collection('expenses').add(transactionData);
+                }
+
+                // 성공 시 입력창 비우기
+                itemEl.value = '';
+                storeEl.value = '';
+                amountEl.value = '';
+                storeEl.focus();
+            } catch (error) {
+                console.error("데이터 저장 중 에러 발생:", error);
+                alert("데이터 저장에 실패했습니다. Firebase 설정을 확인해주세요.");
+            }
+        });
+
+        // 화면 렌더링 함수
+        function updateDOM() {
+            listEl.innerHTML = '';
+            
+            transactions.forEach(transaction => {
+                const li = document.createElement('li');
+                li.className = 'grid-row';
+                
+                const displayCardName = transaction.card ? transaction.card.replace(/^[0-9]+\.\s*/, '') : '카드없음';
+                const categoryName = transaction.category || '기타';
+                const storeName = transaction.store || '-';
+                const itemName = transaction.item || '-'; 
+
+                li.innerHTML = `
+                    <span class="date">${transaction.date}</span>
+                    <span class="card-badge">${displayCardName}</span>
+                    <span class="category-badge">${categoryName}</span>
+                    <span class="store">${storeName}</span>
+                    <span class="item">${itemName}</span>
+                    <span class="amount">-${(transaction.amount || 0).toLocaleString()}원</span>
+                    <div class="action-btns">
+                        <button class="edit-btn" onclick="editTransaction('${transaction.id}')">수정</button>
+                        <button class="delete-btn" onclick="deleteTransaction('${transaction.id}')">삭제</button>
+                    </div>
+                `;
+                listEl.appendChild(li);
+            });
+        }
+
+        function updateValues() {
+            const expense = transactions.reduce((acc, t) => acc + (t.amount || 0), 0);
+            totalExpenseEl.innerText = expense.toLocaleString();
+        }
+
+        // 전역 함수 등록
+        window.editTransaction = function(id) {
+            const transaction = transactions.find(t => t.id === id);
+            if (!transaction) return;
+
+            dateEl.value = transaction.date;
+            cardEl.value = transaction.card;
+            categoryEl.value = transaction.category;
+            storeEl.value = transaction.store || '';
+            itemEl.value = transaction.item || '';
+            amountEl.value = transaction.amount;
+
+            editingId = id;
+            submitBtn.innerText = '내역 수정하기';
+            submitBtn.classList.add('edit-mode');
+            cancelBtn.classList.add('show');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.cancelEdit = function() {
+            editingId = null;
+            submitBtn.innerText = '지출 내역 추가하기';
+            submitBtn.classList.remove('edit-mode');
+            cancelBtn.classList.remove('show');
+            itemEl.value = '';
+            storeEl.value = '';
+            amountEl.value = '';
+        };
+
+        window.deleteTransaction = async function(id) {
+            if(confirm('정말 이 내역을 삭제하시겠습니까?')) {
+                try {
+                    if(editingId === id) cancelEdit();
+                    await db.collection('expenses').doc(id).delete();
+                } catch (error) {
+                    console.error("데이터 삭제 중 에러 발생:", error);
+                    alert("삭제에 실패했습니다.");
+                }
+            }
+        };
+    </script>
+</body>
+</html>
