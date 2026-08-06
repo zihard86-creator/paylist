@@ -3,11 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지출 전용 가계부</title>
+    <title>지출 전용 가계부 (클라우드)</title>
     <style>
         /* 기본 스타일 및 폰트 설정 */
         body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        
+        /* 2단 레이아웃을 위한 래퍼 (Wrapper) */
+        .layout-wrapper { display: flex; gap: 20px; max-width: 1300px; margin: 0 auto; align-items: flex-start; }
+        
+        /* 왼쪽 메인 컨텐츠 영역 */
+        .main-content { flex: 1; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); min-width: 0; }
+        
+        /* 오른쪽 통계 패널 영역 */
+        .side-panel { width: 350px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); flex-shrink: 0; position: sticky; top: 20px; }
+        
+        /* 모바일 등 작은 화면에서는 1단으로 쌓이게 처리 */
+        @media (max-width: 1000px) {
+            .layout-wrapper { flex-direction: column; }
+            .side-panel { width: auto; align-self: stretch; position: static; }
+        }
+
         h1 { text-align: center; color: #333; margin-bottom: 20px; }
         
         /* 요약 카드 스타일 */
@@ -28,7 +43,9 @@
         button[type="submit"].edit-mode { background-color: #2563eb; }
 
         /* 리스트 및 그리드(표) 스타일 */
-        h3 { margin-bottom: 15px; color: #444; }
+        .list-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .list-section-header h3 { margin: 0; color: #444; }
+        .list-section-header input[type="month"] { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
         
         .grid-row { display: grid; grid-template-columns: 95px 120px 110px 1fr 1fr 100px 90px; gap: 10px; align-items: center; }
         .list-header { font-weight: bold; color: #666; background-color: #f1f5f9; padding: 12px 10px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; text-align: center; }
@@ -49,65 +66,102 @@
         .cancel-btn { background-color: #888; color: white; border: none; cursor: pointer; border-radius: 6px; font-weight: bold; padding: 14px; font-size: 15px; display: none; margin-top: 5px; }
         .cancel-btn.show { display: block; }
         #loading { text-align: center; padding: 20px; color: #888; }
+
+        /* 오른쪽 통계 패널 상세 스타일 */
+        .side-panel h3 { margin-top: 0; border-bottom: 2px solid #333; padding-bottom: 10px; color: #333; font-size: 18px; margin-bottom: 20px; }
+        .stat-section { margin-bottom: 25px; }
+        .stat-section h4 { border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 12px; color: #555; font-size: 15px; }
+        .stat-list { list-style: none; padding: 0; margin: 0; }
+        .stat-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 14px; }
+        .stat-list li:last-child { border-bottom: none; }
+        .stat-name { font-weight: 500; color: #444; }
+        .stat-amount { font-weight: bold; color: #ef4444; }
+        .empty-stat { color:#888; text-align:center; font-size: 13px; padding: 10px 0; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>💸 지출 전용 가계부 (클라우드)</h1>
-        
-        <div class="summary">
-            <div class="expense">총 지출<span><b id="total-expense">0</b>원</span></div>
+    <div class="layout-wrapper">
+        <!-- 메인 입력 및 리스트 영역 (왼쪽) -->
+        <div class="main-content">
+            <h1>💸 지출 전용 가계부 (클라우드)</h1>
+            
+            <div class="summary">
+                <div class="expense">해당 월 총 지출<span><b id="total-expense">0</b>원</span></div>
+            </div>
+
+            <form id="form">
+                <div class="form-row">
+                    <input type="date" id="date" required>
+                    <select id="card" required>
+                        <option value="현대카드(이원찬)">1. 현대카드(이원찬)</option>
+                        <option value="현대카드(최옥경)">2. 현대카드(최옥경)</option>
+                        <option value="우리카드(이원찬)">3. 우리카드(이원찬)</option>
+                        <option value="롯데카드(이원찬)">4. 롯데카드(이원찬)</option>
+                    </select>
+                </div>
+                
+                <div class="form-row">
+                    <select id="category" required>
+                        <option value="" disabled selected>분류 선택</option>
+                        <option value="식비">식비</option>
+                        <option value="주유비">주유비</option>
+                        <option value="교통비">교통비</option>
+                        <option value="장모님심부름">장모님심부름</option>
+                        <option value="개인지출(이원찬)">개인지출(이원찬)</option>
+                        <option value="개인지출(최옥경)">개인지출(최옥경)</option>
+                        <option value="기타">기타</option>
+                    </select>
+                    <input type="text" id="store" placeholder="구매처 입력 (예: 이마트, 주유소)" required>
+                </div>
+
+                <div class="form-row">
+                    <input type="text" id="item" placeholder="구매 품목 입력 (예: 라면, 우유, 주유)" required>
+                    <input type="number" id="amount" placeholder="지출 금액 (원)" required min="1">
+                </div>
+
+                <div class="form-row">
+                    <button type="submit" id="submit-btn">지출 내역 추가하기</button>
+                    <button type="button" id="cancel-btn" class="cancel-btn" onclick="cancelEdit()">수정 취소</button>
+                </div>
+            </form>
+
+            <div class="list-section-header">
+                <h3>지출 내역</h3>
+                <input type="month" id="month-selector">
+            </div>
+
+            <div class="list-header grid-row">
+                <div>날짜</div>
+                <div>결제 카드</div>
+                <div>지출 분류</div>
+                <div>구매처</div>
+                <div>구매 품목</div>
+                <div style="text-align: right;">금액</div>
+                <div>관리</div>
+            </div>
+
+            <div id="loading">데이터를 불러오는 중입니다...</div>
+            <ul class="list" id="list"></ul>
         </div>
 
-        <form id="form">
-            <div class="form-row">
-                <input type="date" id="date" required>
-                <select id="card" required>
-                    <option value="현대카드(이원찬)">1. 현대카드(이원찬)</option>
-                    <option value="현대카드(최옥경)">2. 현대카드(최옥경)</option>
-                    <option value="우리카드(이원찬)">3. 우리카드(이원찬)</option>
-                    <option value="롯데카드(이원찬)">4. 롯데카드(이원찬)</option>
-                </select>
+        <!-- 새롭게 추가된 통계 영역 (오른쪽) -->
+        <div class="side-panel">
+            <h3>📊 당월 지출 통계</h3>
+            
+            <div class="stat-section">
+                <h4>분류별 합계</h4>
+                <ul id="category-stats" class="stat-list">
+                    <!-- 자바스크립트로 분류별 데이터가 들어옵니다 -->
+                </ul>
             </div>
             
-            <div class="form-row">
-                <select id="category" required>
-                    <option value="" disabled selected>분류 선택</option>
-                    <option value="식비">식비</option>
-                    <option value="주유비">주유비</option>
-                    <option value="교통비">교통비</option>
-                    <option value="장모님심부름">장모님심부름</option>
-                    <option value="개인지출(이원찬)">개인지출(이원찬)</option>
-                    <option value="개인지출(최옥경)">개인지출(최옥경)</option>
-                    <option value="기타">기타</option>
-                </select>
-                <input type="text" id="store" placeholder="구매처 입력 (예: 이마트, 주유소)" required>
+            <div class="stat-section">
+                <h4>구매처별 합계</h4>
+                <ul id="store-stats" class="stat-list">
+                    <!-- 자바스크립트로 구매처별 데이터가 들어옵니다 -->
+                </ul>
             </div>
-
-            <div class="form-row">
-                <input type="text" id="item" placeholder="구매 품목 입력 (예: 라면, 우유, 주유)" required>
-                <input type="number" id="amount" placeholder="지출 금액 (원)" required min="1">
-            </div>
-
-            <div class="form-row">
-                <button type="submit" id="submit-btn">지출 내역 추가하기</button>
-                <button type="button" id="cancel-btn" class="cancel-btn" onclick="cancelEdit()">수정 취소</button>
-            </div>
-        </form>
-
-        <h3>지출 내역</h3>
-        <div class="list-header grid-row">
-            <div>날짜</div>
-            <div>결제 카드</div>
-            <div>지출 분류</div>
-            <div>구매처</div>
-            <div>구매 품목</div>
-            <div style="text-align: right;">금액</div>
-            <div>관리</div>
         </div>
-
-        <div id="loading">데이터를 불러오는 중입니다...</div>
-        <ul class="list" id="list"></ul>
     </div>
 
     <!-- Firebase SDK (일반 스크립트 호환 버전 - 로컬 파일에서 에러 안 남) -->
@@ -143,19 +197,33 @@
         const listEl = document.getElementById('list');
         const totalExpenseEl = document.getElementById('total-expense');
         const loadingEl = document.getElementById('loading');
+        const monthSelectorEl = document.getElementById('month-selector');
         
+        // 통계 관련 요소
+        const categoryStatsEl = document.getElementById('category-stats');
+        const storeStatsEl = document.getElementById('store-stats');
+
         const submitBtn = document.getElementById('submit-btn');
         const cancelBtn = document.getElementById('cancel-btn');
 
         let transactions = [];
         let editingId = null;
 
-        // 날짜 기본값을 오늘로 설정
+        // 날짜 및 월 선택기 기본값을 오늘로 설정
         const today = new Date();
         const offset = today.getTimezoneOffset() * 60000;
-        dateEl.value = (new Date(today - offset)).toISOString().split('T')[0];
+        const localISODate = (new Date(today - offset)).toISOString().split('T')[0];
+        
+        dateEl.value = localISODate;
+        monthSelectorEl.value = localISODate.substring(0, 7); 
 
-        // 1. Firebase에서 실시간 데이터 불러오기 (호환 문법)
+        // 월 선택기가 변경될 때마다 화면과 총 지출, 통계를 갱신
+        monthSelectorEl.addEventListener('change', () => {
+            updateDOM();
+            updateValues();
+        });
+
+        // 1. Firebase에서 실시간 데이터 불러오기
         db.collection('expenses')
             .orderBy('date', 'desc')
             .orderBy('createdAt', 'desc')
@@ -174,7 +242,7 @@
 
         // 2. 폼 제출 이벤트
         form.addEventListener('submit', async (e) => {
-            e.preventDefault(); // 새로고침 방지
+            e.preventDefault(); 
 
             const transactionData = {
                 date: dateEl.value,
@@ -196,7 +264,13 @@
                     await db.collection('expenses').add(transactionData);
                 }
 
-                // 성공 시 입력창 비우기
+                const inputMonth = dateEl.value.substring(0, 7);
+                if(monthSelectorEl.value !== inputMonth) {
+                    monthSelectorEl.value = inputMonth;
+                    updateDOM();
+                    updateValues();
+                }
+
                 itemEl.value = '';
                 storeEl.value = '';
                 amountEl.value = '';
@@ -207,11 +281,19 @@
             }
         });
 
-        // 화면 렌더링 함수
+        // 화면 리스트 렌더링 함수
         function updateDOM() {
             listEl.innerHTML = '';
             
-            transactions.forEach(transaction => {
+            const selectedMonth = monthSelectorEl.value; 
+            const filteredTransactions = transactions.filter(t => t.date.startsWith(selectedMonth));
+            
+            if (filteredTransactions.length === 0) {
+                listEl.innerHTML = '<li style="color:#888; text-align:center;">해당 월의 지출 내역이 없습니다.</li>';
+                return;
+            }
+
+            filteredTransactions.forEach(transaction => {
                 const li = document.createElement('li');
                 li.className = 'grid-row';
                 
@@ -236,12 +318,56 @@
             });
         }
 
+        // 총계 및 우측 통계 패널 업데이트 함수
         function updateValues() {
-            const expense = transactions.reduce((acc, t) => acc + (t.amount || 0), 0);
+            const selectedMonth = monthSelectorEl.value;
+            const filteredTransactions = transactions.filter(t => t.date.startsWith(selectedMonth));
+            
+            // 1. 총 지출 금액 갱신
+            const expense = filteredTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
             totalExpenseEl.innerText = expense.toLocaleString();
+
+            // 2. 우측 통계 데이터 집계 (분류별, 구매처별)
+            const categoryMap = {};
+            const storeMap = {};
+
+            filteredTransactions.forEach(t => {
+                const cat = t.category || '기타';
+                const store = t.store || '미상';
+                const amt = t.amount || 0;
+
+                categoryMap[cat] = (categoryMap[cat] || 0) + amt;
+                storeMap[store] = (storeMap[store] || 0) + amt;
+            });
+
+            // 3. 통계 데이터 화면에 그리기
+            renderStats(categoryMap, categoryStatsEl);
+            renderStats(storeMap, storeStatsEl);
         }
 
-        // 전역 함수 등록
+        // 통계 데이터를 정렬하여 리스트에 출력하는 재사용 함수
+        function renderStats(dataMap, targetElement) {
+            targetElement.innerHTML = '';
+            
+            // 금액이 큰 순서대로(내림차순) 정렬
+            const sortedData = Object.entries(dataMap).sort((a, b) => b[1] - a[1]);
+
+            if (sortedData.length === 0) {
+                targetElement.innerHTML = '<div class="empty-stat">지출 내역이 없습니다.</div>';
+                return;
+            }
+
+            sortedData.forEach(([name, amount]) => {
+                targetElement.innerHTML += `
+                    <li>
+                        <span class="stat-name">${name}</span>
+                        <span class="stat-amount">-${amount.toLocaleString()}원</span>
+                    </li>
+                `;
+            });
+        }
+
+        // 전역 함수 등록 (수정, 삭제 등)
         window.editTransaction = function(id) {
             const transaction = transactions.find(t => t.id === id);
             if (!transaction) return;
