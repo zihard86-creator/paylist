@@ -28,7 +28,7 @@
         .stats-section { grid-area: stats; position: sticky; top: 20px; }
         .list-section { grid-area: list; min-width: 0; overflow: hidden; }
 
-        /* 모바일(좁은 화면) 레이아웃: 요청하신 순서대로 세로 배치 */
+        /* 모바일(좁은 화면) 레이아웃 */
         @media (max-width: 1000px) {
             .layout-wrapper {
                 grid-template-columns: 1fr;
@@ -38,7 +38,6 @@
                     "list";
             }
             .stats-section { position: static; }
-            /* 모바일에서 분류별/구매처별 합계를 좌우 2단으로 배치 */
             .stats-container { display: flex; flex-direction: row; gap: 15px; align-items: stretch; }
             .stats-container .stat-group { flex: 1; min-width: 0; }
         }
@@ -46,6 +45,7 @@
         /* 좁은 스마트폰 화면에서 폼 요소 세로 정렬 */
         @media (max-width: 600px) {
             .form-row { flex-direction: column; gap: 10px; }
+            .filter-row { flex-direction: column; gap: 8px; } /* 검색 필터도 세로 정렬 */
             .card { padding: 15px; }
         }
 
@@ -79,21 +79,21 @@
         .stat-amount { font-weight: bold; color: #ef4444; }
         .empty-stat { color:#888; text-align:center; font-size: 13px; padding: 10px 0; }
 
-        /* 리스트 영역 헤더 */
+        /* 리스트 영역 헤더 및 검색 필터 */
         .list-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .list-section-header h3 { margin: 0; color: #444; }
         .list-section-header input[type="month"] { padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; width: auto; }
+        
+        /* 새로 추가된 필터(검색) 영역 스타일 */
+        .filter-row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .filter-row select, .filter-row input { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; flex: 1; min-width: 0; }
 
-        /* ==================================================== */
         /* 가로 스크롤 및 글자 짤림 방지용 표(Grid) 스타일 */
-        /* ==================================================== */
         .scroll-wrapper-top { overflow-x: auto; margin-bottom: 5px; -webkit-overflow-scrolling: touch; }
         .scroll-wrapper-bottom { overflow-x: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch; }
         
-        /* 표의 최소 넓이를 900px로 강제하여 글자가 압축되거나 짤리지 않도록 설정 */
         .grid-row { 
             display: grid; 
-            /* 항목(구매처, 구매품목)이 충분한 너비를 갖도록 수정 */
             grid-template-columns: 90px 120px 110px minmax(130px, 1fr) minmax(130px, 1fr) 100px 90px; 
             gap: 10px; 
             align-items: center; 
@@ -129,7 +129,7 @@
             <h1>💸 지출 전용 가계부 (클라우드)</h1>
             
             <div class="summary">
-                <div class="expense">해당 월 총 지출<span><b id="total-expense">0</b>원</span></div>
+                <div class="expense">선택 조건 총 지출<span><b id="total-expense">0</b>원</span></div>
             </div>
 
             <form id="form">
@@ -148,8 +148,8 @@
                         <option value="" disabled selected>분류 선택</option>
                         <option value="식비">식비</option>
                         <option value="토토">토토</option>
-                        <option value="원찬-주유비">원찬 주유비</option>
-                        <option value="옥경-주유비">옥경 주유비</option>
+                        <option value="원찬 주유비">원찬 주유비</option>
+                        <option value="옥경 주유비">옥경 주유비</option>
                         <option value="교통비">교통비</option>
                         <option value="장모님심부름">장모님심부름</option>
                         <option value="개인지출(이원찬)">개인지출(이원찬)</option>
@@ -173,7 +173,7 @@
 
         <!-- 2. 통계 영역 (모바일에서는 중간에 위치, 좌/우 분할 배치) -->
         <div class="stats-section card">
-            <h3>📊 당월 지출 통계</h3>
+            <h3>📊 조건별 지출 통계</h3>
             
             <div class="stats-container">
                 <div class="stat-group">
@@ -194,7 +194,31 @@
                 <input type="month" id="month-selector">
             </div>
 
-            <!-- 상단 가로 스크롤바 영역 (하단과 동기화됨) -->
+            <!-- 새롭게 추가된 검색(필터) 영역 -->
+            <div class="filter-row">
+                <select id="filter-card">
+                    <option value="all">전체 카드</option>
+                    <option value="현대카드(이원찬)">현대카드(이원찬)</option>
+                    <option value="현대카드(최옥경)">현대카드(최옥경)</option>
+                    <option value="우리카드(이원찬)">우리카드(이원찬)</option>
+                    <option value="롯데카드(이원찬)">롯데카드(이원찬)</option>
+                </select>
+                <select id="filter-category">
+                    <option value="all">전체 분류</option>
+                    <option value="식비">식비</option>
+                    <option value="토토">토토</option>
+                    <option value="원찬 주유비">원찬 주유비</option>
+                    <option value="옥경 주유비">옥경 주유비</option>
+                    <option value="교통비">교통비</option>
+                    <option value="장모님심부름">장모님심부름</option>
+                    <option value="개인지출(이원찬)">개인지출(이원찬)</option>
+                    <option value="개인지출(최옥경)">개인지출(최옥경)</option>
+                    <option value="기타">기타</option>
+                </select>
+                <input type="number" id="filter-amount" placeholder="금액 검색 (예: 15000)">
+            </div>
+
+            <!-- 상단 가로 스크롤바 영역 -->
             <div class="scroll-wrapper-top" id="top-scroll">
                 <div class="dummy-content"></div>
             </div>
@@ -259,6 +283,11 @@
         const submitBtn = document.getElementById('submit-btn');
         const cancelBtn = document.getElementById('cancel-btn');
 
+        // 새로 추가된 검색/필터 요소
+        const filterCardEl = document.getElementById('filter-card');
+        const filterCategoryEl = document.getElementById('filter-category');
+        const filterAmountEl = document.getElementById('filter-amount');
+
         // 상하 가로 스크롤 동기화 로직
         const topScroll = document.getElementById('top-scroll');
         const bottomScroll = document.getElementById('bottom-scroll');
@@ -280,10 +309,16 @@
         dateEl.value = localISODate;
         monthSelectorEl.value = localISODate.substring(0, 7); 
 
-        monthSelectorEl.addEventListener('change', () => {
+        // 월 및 각종 필터 변경 시 이벤트 리스너 통합
+        const updateAll = () => {
             updateDOM();
             updateValues();
-        });
+        };
+
+        monthSelectorEl.addEventListener('change', updateAll);
+        filterCardEl.addEventListener('change', updateAll);
+        filterCategoryEl.addEventListener('change', updateAll);
+        filterAmountEl.addEventListener('input', updateAll);
 
         // 1. Firebase에서 실시간 데이터 불러오기
         db.collection('expenses')
@@ -295,8 +330,7 @@
                     transactions.push({ id: doc.id, ...doc.data() });
                 });
                 loadingEl.style.display = 'none';
-                updateDOM();
-                updateValues();
+                updateAll();
             }, (error) => {
                 console.error("데이터를 불러오는 중 에러 발생:", error);
                 loadingEl.innerText = "데이터를 불러올 수 없습니다. Firebase 설정을 확인해주세요.";
@@ -327,8 +361,7 @@
                 const inputMonth = dateEl.value.substring(0, 7);
                 if(monthSelectorEl.value !== inputMonth) {
                     monthSelectorEl.value = inputMonth;
-                    updateDOM();
-                    updateValues();
+                    updateAll();
                 }
 
                 itemEl.value = '';
@@ -341,15 +374,41 @@
             }
         });
 
+        // 공통 필터링 로직 함수
+        function getFilteredTransactions() {
+            const selectedMonth = monthSelectorEl.value;
+            const cardFilter = filterCardEl.value;
+            const categoryFilter = filterCategoryEl.value;
+            const amountFilter = filterAmountEl.value;
+
+            return transactions.filter(t => {
+                // 1. 월 필터
+                if (!t.date.startsWith(selectedMonth)) return false;
+                
+                // 2. 카드 필터
+                if (cardFilter !== 'all') {
+                    // 데이터베이스에 번호가 포함되어 저장되었을 경우를 대비한 처리
+                    if (!t.card.includes(cardFilter)) return false;
+                }
+                
+                // 3. 분류 필터
+                if (categoryFilter !== 'all' && t.category !== categoryFilter) return false;
+                
+                // 4. 금액 검색 필터 (입력된 숫자가 포함된 항목 찾기)
+                if (amountFilter && !(t.amount || 0).toString().includes(amountFilter)) return false;
+                
+                return true;
+            });
+        }
+
         // 화면 리스트 렌더링 함수
         function updateDOM() {
             listEl.innerHTML = '';
             
-            const selectedMonth = monthSelectorEl.value; 
-            const filteredTransactions = transactions.filter(t => t.date.startsWith(selectedMonth));
+            const filteredTransactions = getFilteredTransactions();
             
             if (filteredTransactions.length === 0) {
-                listEl.innerHTML = '<li style="color:#888; text-align:center;">해당 월의 지출 내역이 없습니다.</li>';
+                listEl.innerHTML = '<li style="color:#888; text-align:center;">조건에 일치하는 지출 내역이 없습니다.</li>';
                 return;
             }
 
@@ -380,8 +439,7 @@
 
         // 총계 및 우측 통계 패널 업데이트 함수
         function updateValues() {
-            const selectedMonth = monthSelectorEl.value;
-            const filteredTransactions = transactions.filter(t => t.date.startsWith(selectedMonth));
+            const filteredTransactions = getFilteredTransactions();
             
             const expense = filteredTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
             totalExpenseEl.innerText = expense.toLocaleString();
@@ -409,7 +467,7 @@
             const sortedData = Object.entries(dataMap).sort((a, b) => b[1] - a[1]);
 
             if (sortedData.length === 0) {
-                targetElement.innerHTML = '<div class="empty-stat">지출 내역이 없습니다.</div>';
+                targetElement.innerHTML = '<div class="empty-stat">해당 내역이 없습니다.</div>';
                 return;
             }
 
