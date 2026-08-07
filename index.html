@@ -3,27 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지출 전용 가계부</title>
+    <title>지출 전용 가계부 (클라우드)</title>
     <style>
         /* 기본 스타일 및 폰트 설정 */
         body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
         
-        /* 2단 레이아웃을 위한 래퍼 (Wrapper) */
-        .layout-wrapper { display: flex; gap: 20px; max-width: 1300px; margin: 0 auto; align-items: flex-start; }
+        /* 공통 카드 스타일 */
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        /* 데스크톱(넓은 화면) 레이아웃: CSS Grid 활용 */
+        .layout-wrapper { 
+            display: grid; 
+            grid-template-columns: 1fr 350px; 
+            grid-template-areas: 
+                "input stats"
+                "list stats";
+            gap: 20px; 
+            max-width: 1300px; 
+            margin: 0 auto; 
+            align-items: start; 
+        }
         
-        /* 왼쪽 메인 컨텐츠 영역 */
-        .main-content { flex: 1; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); min-width: 0; }
-        
-        /* 오른쪽 통계 패널 영역 */
-        .side-panel { width: 350px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); flex-shrink: 0; position: sticky; top: 20px; }
-        
-        /* 모바일 등 작은 화면에서는 1단으로 쌓이게 처리 */
+        .input-section { grid-area: input; min-width: 0; }
+        .stats-section { grid-area: stats; position: sticky; top: 20px; }
+        .list-section { grid-area: list; min-width: 0; overflow: hidden; }
+
+        /* 모바일(좁은 화면) 레이아웃: 요청하신 순서대로 세로 배치 */
         @media (max-width: 1000px) {
-            .layout-wrapper { flex-direction: column; }
-            .side-panel { width: auto; align-self: stretch; position: static; }
+            .layout-wrapper {
+                grid-template-columns: 1fr;
+                grid-template-areas:
+                    "input"
+                    "stats"
+                    "list";
+            }
+            .stats-section { position: static; }
+            /* 모바일에서 분류별/구매처별 합계를 좌우 2단으로 배치 */
+            .stats-container { display: flex; flex-direction: row; gap: 15px; align-items: stretch; }
+            .stats-container .stat-group { flex: 1; min-width: 0; }
         }
 
-        h1 { text-align: center; color: #333; margin-bottom: 20px; }
+        /* 좁은 스마트폰 화면에서 폼 요소 세로 정렬 */
+        @media (max-width: 600px) {
+            .form-row { flex-direction: column; gap: 10px; }
+            .card { padding: 15px; }
+        }
+
+        h1 { text-align: center; color: #333; margin-bottom: 20px; font-size: 24px; }
         
         /* 요약 카드 스타일 */
         .summary { display: flex; margin-bottom: 25px; text-align: center; }
@@ -32,30 +58,57 @@
         .expense { background-color: #ef4444; }
 
         /* 입력 폼 스타일 */
-        form { display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px; background-color: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+        form { display: flex; flex-direction: column; gap: 12px; margin-bottom: 10px; background-color: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
         .form-row { display: flex; gap: 10px; }
         .form-row > * { flex: 1; }
         
-        input, select, button { padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background-color: white; box-sizing: border-box; }
+        input, select, button { padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background-color: white; box-sizing: border-box; width: 100%; }
         input:focus, select:focus { outline: none; border-color: #ef4444; }
-        button[type="submit"] { background-color: #333; color: white; cursor: pointer; border: none; font-weight: bold; font-size: 15px; transition: background-color 0.2s; margin-top: 5px; padding: 14px; }
+        button[type="submit"] { background-color: #333; color: white; cursor: pointer; border: none; font-weight: bold; font-size: 15px; transition: background-color 0.2s; padding: 14px; }
         button[type="submit"]:hover { background-color: #555; }
         button[type="submit"].edit-mode { background-color: #2563eb; }
 
-        /* 리스트 및 그리드(표) 스타일 */
-        .list-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        /* 통계 패널 상세 스타일 */
+        .stats-section h3 { margin-top: 0; border-bottom: 2px solid #333; padding-bottom: 10px; color: #333; font-size: 18px; margin-bottom: 15px; text-align: center;}
+        .stats-container { display: flex; flex-direction: column; gap: 20px; }
+        .stat-group h4 { border-bottom: 2px solid #eee; padding-bottom: 8px; margin: 0 0 12px 0; color: #555; font-size: 15px; text-align: center; }
+        .stat-list { list-style: none; padding: 0; margin: 0; }
+        .stat-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 13px; }
+        .stat-list li:last-child { border-bottom: none; }
+        .stat-name { font-weight: 500; color: #444; }
+        .stat-amount { font-weight: bold; color: #ef4444; }
+        .empty-stat { color:#888; text-align:center; font-size: 13px; padding: 10px 0; }
+
+        /* 리스트 영역 헤더 */
+        .list-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .list-section-header h3 { margin: 0; color: #444; }
-        .list-section-header input[type="month"] { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        .list-section-header input[type="month"] { padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; width: auto; }
+
+        /* ==================================================== */
+        /* 가로 스크롤 및 글자 짤림 방지용 표(Grid) 스타일 */
+        /* ==================================================== */
+        .scroll-wrapper-top { overflow-x: auto; margin-bottom: 5px; -webkit-overflow-scrolling: touch; }
+        .scroll-wrapper-bottom { overflow-x: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch; }
         
-        .grid-row { display: grid; grid-template-columns: 95px 120px 110px 1fr 1fr 100px 90px; gap: 10px; align-items: center; }
+        /* 표의 최소 넓이를 900px로 강제하여 글자가 압축되거나 짤리지 않도록 설정 */
+        .grid-row { 
+            display: grid; 
+            /* 항목(구매처, 구매품목)이 충분한 너비를 갖도록 수정 */
+            grid-template-columns: 90px 120px 110px minmax(130px, 1fr) minmax(130px, 1fr) 100px 90px; 
+            gap: 10px; 
+            align-items: center; 
+            min-width: 900px; 
+        }
+        .dummy-content { width: 900px; height: 1px; }
+
         .list-header { font-weight: bold; color: #666; background-color: #f1f5f9; padding: 12px 10px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; text-align: center; }
         .list { list-style-type: none; padding: 0; margin: 0; }
         .list li { padding: 12px 10px; border-bottom: 1px solid #eee; font-size: 13px; text-align: center; }
         .list li:last-child { border-bottom: none; }
         
         .date { color: #888; font-size: 13px; }
-        .card-badge { font-size: 12px; color: #555; background-color: #f1f1f1; padding: 5px 8px; border-radius: 4px; white-space: nowrap; display: inline-block; }
-        .category-badge { font-size: 12px; color: #2563eb; background-color: #dbeafe; padding: 5px 8px; border-radius: 4px; white-space: nowrap; display: inline-block; }
+        .card-badge { font-size: 11px; color: #555; background-color: #f1f1f1; padding: 5px 6px; border-radius: 4px; white-space: nowrap; display: inline-block; }
+        .category-badge { font-size: 11px; color: #2563eb; background-color: #dbeafe; padding: 5px 6px; border-radius: 4px; white-space: nowrap; display: inline-block; }
         .store, .item { text-align: left; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .amount { font-weight: bold; text-align: right; color: #ef4444; }
         
@@ -66,23 +119,13 @@
         .cancel-btn { background-color: #888; color: white; border: none; cursor: pointer; border-radius: 6px; font-weight: bold; padding: 14px; font-size: 15px; display: none; margin-top: 5px; }
         .cancel-btn.show { display: block; }
         #loading { text-align: center; padding: 20px; color: #888; }
-
-        /* 오른쪽 통계 패널 상세 스타일 */
-        .side-panel h3 { margin-top: 0; border-bottom: 2px solid #333; padding-bottom: 10px; color: #333; font-size: 18px; margin-bottom: 20px; }
-        .stat-section { margin-bottom: 25px; }
-        .stat-section h4 { border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 12px; color: #555; font-size: 15px; }
-        .stat-list { list-style: none; padding: 0; margin: 0; }
-        .stat-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 14px; }
-        .stat-list li:last-child { border-bottom: none; }
-        .stat-name { font-weight: 500; color: #444; }
-        .stat-amount { font-weight: bold; color: #ef4444; }
-        .empty-stat { color:#888; text-align:center; font-size: 13px; padding: 10px 0; }
     </style>
 </head>
 <body>
     <div class="layout-wrapper">
-        <!-- 메인 입력 및 리스트 영역 (왼쪽) -->
-        <div class="main-content">
+        
+        <!-- 1. 메인 입력 영역 -->
+        <div class="input-section card">
             <h1>💸 지출 전용 가계부 (클라우드)</h1>
             
             <div class="summary">
@@ -97,7 +140,6 @@
                         <option value="현대카드(최옥경)">2. 현대카드(최옥경)</option>
                         <option value="우리카드(이원찬)">3. 우리카드(이원찬)</option>
                         <option value="롯데카드(이원찬)">4. 롯데카드(이원찬)</option>
-                        <option value="현금결제">5. 현금결제</option>
                     </select>
                 </div>
                 
@@ -105,11 +147,8 @@
                     <select id="category" required>
                         <option value="" disabled selected>분류 선택</option>
                         <option value="식비">식비</option>
-                        <option value="외식비">외식비</option>
-                        <option value="주유비(6351)">주유비(6351)</option>
-                        <option value="주유비(4398)">주유비(4398)</option>
+                        <option value="주유비">주유비</option>
                         <option value="교통비">교통비</option>
-                        <option value="토토">토토</option>
                         <option value="장모님심부름">장모님심부름</option>
                         <option value="개인지출(이원찬)">개인지출(이원찬)</option>
                         <option value="개인지출(최옥경)">개인지출(최옥경)</option>
@@ -128,47 +167,56 @@
                     <button type="button" id="cancel-btn" class="cancel-btn" onclick="cancelEdit()">수정 취소</button>
                 </div>
             </form>
+        </div>
 
+        <!-- 2. 통계 영역 (모바일에서는 중간에 위치, 좌/우 분할 배치) -->
+        <div class="stats-section card">
+            <h3>📊 당월 지출 통계</h3>
+            
+            <div class="stats-container">
+                <div class="stat-group">
+                    <h4>분류별 합계</h4>
+                    <ul id="category-stats" class="stat-list"></ul>
+                </div>
+                <div class="stat-group">
+                    <h4>구매처별 합계</h4>
+                    <ul id="store-stats" class="stat-list"></ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. 지출 내역 영역 (하단) -->
+        <div class="list-section card">
             <div class="list-section-header">
                 <h3>지출 내역</h3>
                 <input type="month" id="month-selector">
             </div>
 
-            <div class="list-header grid-row">
-                <div>날짜</div>
-                <div>결제 카드</div>
-                <div>지출 분류</div>
-                <div>구매처</div>
-                <div>구매 품목</div>
-                <div style="text-align: right;">금액</div>
-                <div>관리</div>
+            <!-- 상단 가로 스크롤바 영역 (하단과 동기화됨) -->
+            <div class="scroll-wrapper-top" id="top-scroll">
+                <div class="dummy-content"></div>
             </div>
 
-            <div id="loading">데이터를 불러오는 중입니다...</div>
-            <ul class="list" id="list"></ul>
-        </div>
+            <!-- 하단 실제 컨텐츠 스크롤바 영역 -->
+            <div class="scroll-wrapper-bottom" id="bottom-scroll">
+                <div class="list-header grid-row">
+                    <div>날짜</div>
+                    <div>결제 카드</div>
+                    <div>지출 분류</div>
+                    <div>구매처</div>
+                    <div>구매 품목</div>
+                    <div style="text-align: right;">금액</div>
+                    <div>관리</div>
+                </div>
 
-        <!-- 새롭게 추가된 통계 영역 (오른쪽) -->
-        <div class="side-panel">
-            <h3>📊 당월 지출 통계</h3>
-            
-            <div class="stat-section">
-                <h4>분류별 합계</h4>
-                <ul id="category-stats" class="stat-list">
-                    <!-- 자바스크립트로 분류별 데이터가 들어옵니다 -->
-                </ul>
-            </div>
-            
-            <div class="stat-section">
-                <h4>구매처별 합계</h4>
-                <ul id="store-stats" class="stat-list">
-                    <!-- 자바스크립트로 구매처별 데이터가 들어옵니다 -->
-                </ul>
+                <div id="loading">데이터를 불러오는 중입니다...</div>
+                <ul class="list" id="list"></ul>
             </div>
         </div>
+        
     </div>
 
-    <!-- Firebase SDK (일반 스크립트 호환 버전 - 로컬 파일에서 에러 안 남) -->
+    <!-- Firebase SDK (일반 스크립트 호환 버전) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     
@@ -186,7 +234,7 @@
             appId: "1:410312751551:web:a7ac6cb9fbab736faf890a"
         };
 
-        // Firebase 초기화 (호환 문법)
+        // Firebase 초기화
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
@@ -203,17 +251,26 @@
         const loadingEl = document.getElementById('loading');
         const monthSelectorEl = document.getElementById('month-selector');
         
-        // 통계 관련 요소
         const categoryStatsEl = document.getElementById('category-stats');
         const storeStatsEl = document.getElementById('store-stats');
 
         const submitBtn = document.getElementById('submit-btn');
         const cancelBtn = document.getElementById('cancel-btn');
 
+        // 상하 가로 스크롤 동기화 로직
+        const topScroll = document.getElementById('top-scroll');
+        const bottomScroll = document.getElementById('bottom-scroll');
+        
+        topScroll.addEventListener('scroll', () => {
+            bottomScroll.scrollLeft = topScroll.scrollLeft;
+        });
+        bottomScroll.addEventListener('scroll', () => {
+            topScroll.scrollLeft = bottomScroll.scrollLeft;
+        });
+
         let transactions = [];
         let editingId = null;
 
-        // 날짜 및 월 선택기 기본값을 오늘로 설정
         const today = new Date();
         const offset = today.getTimezoneOffset() * 60000;
         const localISODate = (new Date(today - offset)).toISOString().split('T')[0];
@@ -221,7 +278,6 @@
         dateEl.value = localISODate;
         monthSelectorEl.value = localISODate.substring(0, 7); 
 
-        // 월 선택기가 변경될 때마다 화면과 총 지출, 통계를 갱신
         monthSelectorEl.addEventListener('change', () => {
             updateDOM();
             updateValues();
@@ -259,11 +315,9 @@
 
             try {
                 if (editingId) {
-                    // 수정
                     await db.collection('expenses').doc(editingId).update(transactionData);
                     cancelEdit();
                 } else {
-                    // 새로 추가
                     transactionData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                     await db.collection('expenses').add(transactionData);
                 }
@@ -327,11 +381,9 @@
             const selectedMonth = monthSelectorEl.value;
             const filteredTransactions = transactions.filter(t => t.date.startsWith(selectedMonth));
             
-            // 1. 총 지출 금액 갱신
             const expense = filteredTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
             totalExpenseEl.innerText = expense.toLocaleString();
 
-            // 2. 우측 통계 데이터 집계 (분류별, 구매처별)
             const categoryMap = {};
             const storeMap = {};
 
@@ -344,7 +396,6 @@
                 storeMap[store] = (storeMap[store] || 0) + amt;
             });
 
-            // 3. 통계 데이터 화면에 그리기
             renderStats(categoryMap, categoryStatsEl);
             renderStats(storeMap, storeStatsEl);
         }
@@ -353,7 +404,6 @@
         function renderStats(dataMap, targetElement) {
             targetElement.innerHTML = '';
             
-            // 금액이 큰 순서대로(내림차순) 정렬
             const sortedData = Object.entries(dataMap).sort((a, b) => b[1] - a[1]);
 
             if (sortedData.length === 0) {
