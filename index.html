@@ -38,14 +38,16 @@
                     "list";
             }
             .stats-section { position: static; }
-            .stats-container { display: flex; flex-direction: row; gap: 15px; align-items: stretch; }
-            .stats-container .stat-group { flex: 1; min-width: 0; }
+            /* 모바일 통계 배치: 카드별은 100% 가로, 분류/구매처는 아래에 50%씩 분할 */
+            .stats-container { display: flex; flex-direction: column; gap: 20px; }
+            .stats-row { display: flex; flex-direction: row; gap: 15px; align-items: stretch; }
+            .stats-row .stat-group { flex: 1; min-width: 0; }
         }
 
         /* 좁은 스마트폰 화면에서 폼 요소 세로 정렬 */
         @media (max-width: 600px) {
             .form-row { flex-direction: column; gap: 10px; }
-            .filter-row { flex-direction: column; gap: 8px; } /* 검색 필터도 세로 정렬 */
+            .filter-row { flex-direction: column; gap: 8px; }
             .card { padding: 15px; }
         }
 
@@ -84,7 +86,6 @@
         .list-section-header h3 { margin: 0; color: #444; }
         .list-section-header input[type="month"] { padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; width: auto; }
         
-        /* 새로 추가된 필터(검색) 영역 스타일 */
         .filter-row { display: flex; gap: 10px; margin-bottom: 15px; }
         .filter-row select, .filter-row input { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; flex: 1; min-width: 0; }
 
@@ -156,7 +157,7 @@
                         <option value="개인지출(이원찬)">개인지출(이원찬)</option>
                         <option value="개인지출(최옥경)">개인지출(최옥경)</option>
                         <option value="기타">기타</option>
-                        <option value="기타">공과금</option>
+                        <option value="공과금">공과금</option>
                     </select>
                     <input type="text" id="store" placeholder="구매처 입력 (예: 이마트, 주유소)" required>
                 </div>
@@ -173,18 +174,27 @@
             </form>
         </div>
 
-        <!-- 2. 통계 영역 (모바일에서는 중간에 위치, 좌/우 분할 배치) -->
+        <!-- 2. 통계 영역 -->
         <div class="stats-section card">
             <h3>📊 조건별 지출 통계</h3>
             
             <div class="stats-container">
+                <!-- 분류별 합계 (상단) -->
                 <div class="stat-group">
                     <h4>분류별 합계</h4>
                     <ul id="category-stats" class="stat-list"></ul>
                 </div>
-                <div class="stat-group">
-                    <h4>구매처별 합계</h4>
-                    <ul id="store-stats" class="stat-list"></ul>
+                
+                <!-- 카드별, 구매처별 합계 (하단, 모바일에서는 좌우 분할) -->
+                <div class="stats-row">
+                    <div class="stat-group">
+                        <h4>카드별 합계</h4>
+                        <ul id="card-stats" class="stat-list"></ul>
+                    </div>
+                    <div class="stat-group">
+                        <h4>구매처별 합계</h4>
+                        <ul id="store-stats" class="stat-list"></ul>
+                    </div>
                 </div>
             </div>
         </div>
@@ -196,7 +206,7 @@
                 <input type="month" id="month-selector">
             </div>
 
-            <!-- 새롭게 추가된 검색(필터) 영역 -->
+            <!-- 검색(필터) 영역 -->
             <div class="filter-row">
                 <select id="filter-card">
                     <option value="all">전체 카드</option>
@@ -217,6 +227,7 @@
                     <option value="개인지출(이원찬)">개인지출(이원찬)</option>
                     <option value="개인지출(최옥경)">개인지출(최옥경)</option>
                     <option value="기타">기타</option>
+                    <option value="공과금">공과금</option>
                 </select>
                 <input type="number" id="filter-amount" placeholder="금액 검색 (예: 15000)">
             </div>
@@ -280,7 +291,9 @@
         const loadingEl = document.getElementById('loading');
         const monthSelectorEl = document.getElementById('month-selector');
         
+        // 통계 요소
         const categoryStatsEl = document.getElementById('category-stats');
+        const cardStatsEl = document.getElementById('card-stats');
         const storeStatsEl = document.getElementById('store-stats');
 
         const submitBtn = document.getElementById('submit-btn');
@@ -385,19 +398,14 @@
             const amountFilter = filterAmountEl.value;
 
             return transactions.filter(t => {
-                // 1. 월 필터
                 if (!t.date.startsWith(selectedMonth)) return false;
                 
-                // 2. 카드 필터
                 if (cardFilter !== 'all') {
-                    // 데이터베이스에 번호가 포함되어 저장되었을 경우를 대비한 처리
                     if (!t.card.includes(cardFilter)) return false;
                 }
                 
-                // 3. 분류 필터
                 if (categoryFilter !== 'all' && t.category !== categoryFilter) return false;
                 
-                // 4. 금액 검색 필터 (입력된 숫자가 포함된 항목 찾기)
                 if (amountFilter && !(t.amount || 0).toString().includes(amountFilter)) return false;
                 
                 return true;
@@ -448,18 +456,22 @@
             totalExpenseEl.innerText = expense.toLocaleString();
 
             const categoryMap = {};
+            const cardMap = {};
             const storeMap = {};
 
             filteredTransactions.forEach(t => {
                 const cat = t.category || '기타';
+                const card = t.card ? t.card.replace(/^[0-9]+\.\s*/, '') : '미분류';
                 const store = t.store || '미상';
                 const amt = t.amount || 0;
 
                 categoryMap[cat] = (categoryMap[cat] || 0) + amt;
+                cardMap[card] = (cardMap[card] || 0) + amt;
                 storeMap[store] = (storeMap[store] || 0) + amt;
             });
 
             renderStats(categoryMap, categoryStatsEl);
+            renderStats(cardMap, cardStatsEl);
             renderStats(storeMap, storeStatsEl);
         }
 
