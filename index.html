@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지출 전용 가계부 (클라우드)</title>
+    <title>지출 전용 가계부 (할부 기능 포함)</title>
     <style>
         /* 기본 스타일 및 폰트 설정 */
         body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
@@ -11,7 +11,7 @@
         /* 공통 카드 스타일 */
         .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
-        /* 데스크톱(넓은 화면) 레이아웃: CSS Grid 활용 */
+        /* 데스크톱 레이아웃 */
         .layout-wrapper { 
             display: grid; 
             grid-template-columns: 1fr 350px; 
@@ -28,51 +28,64 @@
         .stats-section { grid-area: stats; position: sticky; top: 20px; }
         .list-section { grid-area: list; min-width: 0; overflow: hidden; }
 
-        /* 모바일(좁은 화면) 레이아웃 */
+        /* 모바일 레이아웃 */
         @media (max-width: 1000px) {
-            .layout-wrapper {
-                grid-template-columns: 1fr;
-                grid-template-areas:
-                    "input"
-                    "stats"
-                    "list";
-            }
+            .layout-wrapper { grid-template-columns: 1fr; grid-template-areas: "input" "stats" "list"; }
             .stats-section { position: static; }
-            /* 모바일 통계 배치: 카드별은 100% 가로, 분류/구매처는 아래에 50%씩 분할 */
             .stats-container { display: flex; flex-direction: column; gap: 20px; }
             .stats-row { display: flex; flex-direction: row; gap: 15px; align-items: stretch; }
             .stats-row .stat-group { flex: 1; min-width: 0; }
         }
-
-        /* 좁은 스마트폰 화면에서 폼 요소 세로 정렬 */
         @media (max-width: 600px) {
-            .form-row { flex-direction: column; gap: 10px; }
+            .form-row { grid-template-columns: 1fr !important; gap: 10px; }
             .filter-row { flex-direction: column; gap: 8px; }
             .card { padding: 15px; }
+            .installment-group, .btn-group { flex-direction: column; gap: 10px; }
         }
 
         h1 { text-align: center; color: #333; margin-bottom: 20px; font-size: 24px; }
         
-        /* 요약 카드 스타일 */
         .summary { display: flex; margin-bottom: 25px; text-align: center; }
         .summary div { flex: 1; padding: 20px 10px; border-radius: 8px; color: white; font-weight: bold; font-size: 16px; }
         .summary span { display: block; font-size: 28px; margin-top: 8px; }
         .expense { background-color: #ef4444; }
 
-        /* 입력 폼 스타일 */
+        /* 입력 폼 레이아웃 */
         form { display: flex; flex-direction: column; gap: 12px; margin-bottom: 10px; background-color: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
-        .form-row { display: flex; gap: 10px; }
-        .form-row > * { flex: 1; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; padding: 0; }
+        .form-row > * { min-width: 0; }
         
-        input, select, button { padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background-color: white; box-sizing: border-box; width: 100%; }
+        .installment-group, .btn-group { display: flex; gap: 10px; margin: 0; padding: 0; width: 100%; }
+        .installment-group > *, .btn-group > * { flex: 1; min-width: 0; }
+
+        input, select, button { 
+            height: 46px; 
+            padding: 0 12px; 
+            border: 1px solid #ddd; 
+            border-radius: 6px; 
+            font-size: 14px; 
+            background-color: white; 
+            box-sizing: border-box; 
+            width: 100%; 
+            margin: 0; 
+            vertical-align: middle;
+        }
+        
         input:focus, select:focus { outline: none; border-color: #ef4444; }
-        button[type="submit"] { background-color: #333; color: white; cursor: pointer; border: none; font-weight: bold; font-size: 15px; transition: background-color 0.2s; padding: 14px; }
+        
+        button { border: none; font-weight: bold; font-size: 15px; cursor: pointer; transition: background-color 0.2s; }
+        button[type="submit"] { background-color: #333; color: white; }
         button[type="submit"]:hover { background-color: #555; }
         button[type="submit"].edit-mode { background-color: #2563eb; }
+        
+        .cancel-btn { background-color: #888; color: white; display: none; }
+        .cancel-btn.show { display: block; }
+        
+        #install-months { display: none; background-color: #fffbdd; border-color: #f59e0b;} 
+        #install-months.show { display: block; }
 
-        /* 통계 패널 상세 스타일 */
+        /* 통계 패널 */
         .stats-section h3 { margin-top: 0; border-bottom: 2px solid #333; padding-bottom: 10px; color: #333; font-size: 18px; margin-bottom: 15px; text-align: center;}
-        .stats-container { display: flex; flex-direction: column; gap: 20px; }
         .stat-group h4 { border-bottom: 2px solid #eee; padding-bottom: 8px; margin: 0 0 12px 0; color: #555; font-size: 15px; text-align: center; }
         .stat-list { list-style: none; padding: 0; margin: 0; }
         .stat-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 13px; }
@@ -84,10 +97,10 @@
         /* 리스트 영역 헤더 및 검색 필터 */
         .list-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .list-section-header h3 { margin: 0; color: #444; }
-        .list-section-header input[type="month"] { padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; width: auto; }
+        .list-section-header input[type="month"] { padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; width: auto; height: 38px; }
         
         .filter-row { display: flex; gap: 10px; margin-bottom: 15px; }
-        .filter-row select, .filter-row input { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; flex: 1; min-width: 0; }
+        .filter-row select, .filter-row input { padding: 0 12px; height: 42px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; flex: 1; min-width: 0; }
 
         /* 가로 스크롤 및 글자 짤림 방지용 표(Grid) 스타일 */
         .scroll-wrapper-top { overflow-x: auto; margin-bottom: 5px; -webkit-overflow-scrolling: touch; }
@@ -95,12 +108,12 @@
         
         .grid-row { 
             display: grid; 
-            grid-template-columns: 90px 120px 110px minmax(130px, 1fr) minmax(130px, 1fr) 100px 90px; 
+            grid-template-columns: 90px 120px 110px minmax(130px, 1fr) minmax(150px, 2fr) 140px 90px; 
             gap: 10px; 
             align-items: center; 
-            min-width: 900px; 
+            min-width: 1000px; 
         }
-        .dummy-content { width: 900px; height: 1px; }
+        .dummy-content { width: 1000px; height: 1px; }
 
         .list-header { font-weight: bold; color: #666; background-color: #f1f5f9; padding: 12px 10px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; text-align: center; }
         .list { list-style-type: none; padding: 0; margin: 0; }
@@ -110,15 +123,20 @@
         .date { color: #888; font-size: 13px; }
         .card-badge { font-size: 11px; color: #555; background-color: #f1f1f1; padding: 5px 6px; border-radius: 4px; white-space: nowrap; display: inline-block; }
         .category-badge { font-size: 11px; color: #2563eb; background-color: #dbeafe; padding: 5px 6px; border-radius: 4px; white-space: nowrap; display: inline-block; }
-        .store, .item { text-align: left; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .amount { font-weight: bold; text-align: right; color: #ef4444; }
+        
+        .item-cell { text-align: left; overflow: hidden; display: flex; align-items: center; gap: 5px; }
+        .item-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .install-badge { font-size: 10px; background-color: #fef3c7; color: #d97706; padding: 2px 5px; border-radius: 4px; font-weight: bold; white-space: nowrap; border: 1px solid #fde68a;}
+        
+        .store { text-align: left; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .amount-cell { text-align: right; display: flex; flex-direction: column; justify-content: center; }
+        .amount { font-weight: bold; color: #ef4444; }
+        .original-amount { font-size: 11px; color: #888; font-weight: normal; margin-top: 2px; }
         
         .action-btns { display: flex; gap: 4px; justify-content: center; }
-        .edit-btn { background-color: #10b981; color: white; border: none; padding: 6px 8px; cursor: pointer; border-radius: 4px; font-size: 12px; flex: 1; }
-        .delete-btn { background-color: #ff4d4d; color: white; border: none; padding: 6px 8px; cursor: pointer; border-radius: 4px; font-size: 12px; flex: 1; }
-        
-        .cancel-btn { background-color: #888; color: white; border: none; cursor: pointer; border-radius: 6px; font-weight: bold; padding: 14px; font-size: 15px; display: none; margin-top: 5px; }
-        .cancel-btn.show { display: block; }
+        .edit-btn { background-color: #10b981; color: white; border: none; padding: 6px 8px; cursor: pointer; border-radius: 4px; font-size: 12px; flex: 1; height: auto; }
+        .delete-btn { background-color: #ff4d4d; color: white; border: none; padding: 6px 8px; cursor: pointer; border-radius: 4px; font-size: 12px; flex: 1; height: auto; }
         #loading { text-align: center; padding: 20px; color: #888; }
     </style>
 </head>
@@ -134,6 +152,7 @@
             </div>
 
             <form id="form">
+                <!-- 1열 -->
                 <div class="form-row">
                     <input type="date" id="date" required>
                     <select id="card" required>
@@ -145,6 +164,7 @@
                     </select>
                 </div>
                 
+                <!-- 2열 -->
                 <div class="form-row">
                     <select id="category" required>
                         <option value="" disabled selected>분류 선택</option>
@@ -165,14 +185,25 @@
                     <input type="text" id="store" placeholder="구매처 입력 (예: 이마트, 주유소)" required>
                 </div>
 
+                <!-- 3열 (품목 및 할부 선택) -->
                 <div class="form-row">
                     <input type="text" id="item" placeholder="구매 품목 입력 (예: 라면, 우유, 주유)" required>
-                    <input type="number" id="amount" placeholder="지출 금액 (원)" required min="1">
+                    <div class="installment-group">
+                        <select id="pay-type" required>
+                            <option value="lump">일시불</option>
+                            <option value="install">할부결제</option>
+                        </select>
+                        <input type="number" id="install-months" placeholder="할부 개월 (예: 3)" min="2" max="60">
+                    </div>
                 </div>
 
+                <!-- 4열 (금액 및 버튼) -->
                 <div class="form-row">
-                    <button type="submit" id="submit-btn">지출 내역 추가하기</button>
-                    <button type="button" id="cancel-btn" class="cancel-btn" onclick="cancelEdit()">수정 취소</button>
+                    <input type="number" id="amount" placeholder="총 결제 금액 (원금) 입력" required min="1">
+                    <div class="btn-group">
+                        <button type="submit" id="submit-btn">지출 내역 추가하기</button>
+                        <button type="button" id="cancel-btn" class="cancel-btn" onclick="cancelEdit()">수정 취소</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -182,13 +213,11 @@
             <h3>📊 조건별 지출 통계</h3>
             
             <div class="stats-container">
-                <!-- 분류별 합계 (상단) -->
                 <div class="stat-group">
                     <h4>분류별 합계</h4>
                     <ul id="category-stats" class="stat-list"></ul>
                 </div>
                 
-                <!-- 카드별, 구매처별 합계 (하단, 모바일에서는 좌우 분할) -->
                 <div class="stats-row">
                     <div class="stat-group">
                         <h4>카드별 합계</h4>
@@ -235,23 +264,22 @@
                     <option value="공과금">공과금</option>
                     <option value="기타">기타</option>
                 </select>
-                <input type="number" id="filter-amount" placeholder="금액 검색 (예: 15000)">
+                <!-- 검색창 플레이스홀더 변경 -->
+                <input type="number" id="filter-amount" placeholder="금액 검색 (할부 월납입액 기준)">
             </div>
 
-            <!-- 상단 가로 스크롤바 영역 -->
             <div class="scroll-wrapper-top" id="top-scroll">
                 <div class="dummy-content"></div>
             </div>
 
-            <!-- 하단 실제 컨텐츠 스크롤바 영역 -->
             <div class="scroll-wrapper-bottom" id="bottom-scroll">
                 <div class="list-header grid-row">
                     <div>날짜</div>
                     <div>결제 카드</div>
                     <div>지출 분류</div>
                     <div>구매처</div>
-                    <div>구매 품목</div>
-                    <div style="text-align: right;">금액</div>
+                    <div>구매 품목 (할부)</div>
+                    <div style="text-align: right;">이용 금액 (원금)</div>
                     <div>관리</div>
                 </div>
 
@@ -262,7 +290,7 @@
         
     </div>
 
-    <!-- Firebase SDK (일반 스크립트 호환 버전) -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     
@@ -280,7 +308,6 @@
             appId: "1:410312751551:web:a7ac6cb9fbab736faf890a"
         };
 
-        // Firebase 초기화
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
@@ -292,12 +319,15 @@
         const storeEl = document.getElementById('store');
         const itemEl = document.getElementById('item');
         const amountEl = document.getElementById('amount');
+        
+        const payTypeEl = document.getElementById('pay-type');
+        const installMonthsEl = document.getElementById('install-months');
+
         const listEl = document.getElementById('list');
         const totalExpenseEl = document.getElementById('total-expense');
         const loadingEl = document.getElementById('loading');
         const monthSelectorEl = document.getElementById('month-selector');
         
-        // 통계 요소
         const categoryStatsEl = document.getElementById('category-stats');
         const cardStatsEl = document.getElementById('card-stats');
         const storeStatsEl = document.getElementById('store-stats');
@@ -305,24 +335,18 @@
         const submitBtn = document.getElementById('submit-btn');
         const cancelBtn = document.getElementById('cancel-btn');
 
-        // 새로 추가된 검색/필터 요소
         const filterCardEl = document.getElementById('filter-card');
         const filterCategoryEl = document.getElementById('filter-category');
         const filterAmountEl = document.getElementById('filter-amount');
 
-        // 상하 가로 스크롤 동기화 로직
+        // 상하 스크롤 동기화
         const topScroll = document.getElementById('top-scroll');
         const bottomScroll = document.getElementById('bottom-scroll');
-        
-        topScroll.addEventListener('scroll', () => {
-            bottomScroll.scrollLeft = topScroll.scrollLeft;
-        });
-        bottomScroll.addEventListener('scroll', () => {
-            topScroll.scrollLeft = bottomScroll.scrollLeft;
-        });
+        topScroll.addEventListener('scroll', () => { bottomScroll.scrollLeft = topScroll.scrollLeft; });
+        bottomScroll.addEventListener('scroll', () => { topScroll.scrollLeft = bottomScroll.scrollLeft; });
 
         let transactions = [];
-        let editingId = null;
+        let editingGroupId = null; 
 
         const today = new Date();
         const offset = today.getTimezoneOffset() * 60000;
@@ -331,18 +355,25 @@
         dateEl.value = localISODate;
         monthSelectorEl.value = localISODate.substring(0, 7); 
 
-        // 월 및 각종 필터 변경 시 이벤트 리스너 통합
-        const updateAll = () => {
-            updateDOM();
-            updateValues();
-        };
+        // 할부 입력창 표시/숨김
+        payTypeEl.addEventListener('change', (e) => {
+            if (e.target.value === 'install') {
+                installMonthsEl.classList.add('show');
+                installMonthsEl.required = true;
+            } else {
+                installMonthsEl.classList.remove('show');
+                installMonthsEl.required = false;
+                installMonthsEl.value = '';
+            }
+        });
 
+        const updateAll = () => { updateDOM(); updateValues(); };
         monthSelectorEl.addEventListener('change', updateAll);
         filterCardEl.addEventListener('change', updateAll);
         filterCategoryEl.addEventListener('change', updateAll);
         filterAmountEl.addEventListener('input', updateAll);
 
-        // 1. Firebase에서 실시간 데이터 불러오기
+        // 실시간 데이터
         db.collection('expenses')
             .orderBy('date', 'desc')
             .orderBy('createdAt', 'desc')
@@ -354,49 +385,100 @@
                 loadingEl.style.display = 'none';
                 updateAll();
             }, (error) => {
-                console.error("데이터를 불러오는 중 에러 발생:", error);
-                loadingEl.innerText = "데이터를 불러올 수 없습니다. Firebase 설정을 확인해주세요.";
+                console.error("에러 발생:", error);
+                loadingEl.innerText = "데이터를 불러올 수 없습니다.";
             });
 
-        // 2. 폼 제출 이벤트
+        // 폼 제출
         form.addEventListener('submit', async (e) => {
             e.preventDefault(); 
+            
+            // 모든 폼 값 먼저 캡처 (수정 중 입력란 초기화 방지)
+            const baseDateStr = dateEl.value; 
+            const cardVal = cardEl.value;
+            const categoryVal = categoryEl.value;
+            const storeVal = storeEl.value;
+            const itemVal = itemEl.value;
+            const totalAmount = parseInt(amountEl.value);
+            const isInstall = payTypeEl.value === 'install';
+            const totalMonths = isInstall ? parseInt(installMonthsEl.value) : 1;
 
-            const transactionData = {
-                date: dateEl.value,
-                card: cardEl.value,
-                category: categoryEl.value, 
-                store: storeEl.value,
-                item: itemEl.value,
-                amount: parseInt(amountEl.value)
-            };
+            const monthlyAmount = isInstall ? Math.floor(totalAmount / totalMonths) : totalAmount;
+            const remainder = isInstall ? totalAmount % totalMonths : 0;
+            
+            const groupId = editingGroupId ? editingGroupId : "grp_" + new Date().getTime(); 
+            const createdAt = firebase.firestore.FieldValue.serverTimestamp();
 
             try {
-                if (editingId) {
-                    await db.collection('expenses').doc(editingId).update(transactionData);
-                    cancelEdit();
-                } else {
-                    transactionData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    await db.collection('expenses').add(transactionData);
+                // 수정 시 기존 데이터(그룹 전체 또는 과거 단일 데이터) 일괄 삭제
+                if (editingGroupId) {
+                    const target = transactions.find(t => t.groupId === editingGroupId || t.id === editingGroupId);
+                    if (target) {
+                        if (target.groupId) {
+                            const batch = db.batch();
+                            const querySnapshot = await db.collection('expenses').where("groupId", "==", target.groupId).get();
+                            querySnapshot.forEach(doc => {
+                                batch.delete(doc.ref);
+                            });
+                            await batch.commit();
+                        } else {
+                            await db.collection('expenses').doc(target.id).delete();
+                        }
+                    }
                 }
 
-                const inputMonth = dateEl.value.substring(0, 7);
+                // 신규/수정된 데이터 저장 (할부 분할 포함)
+                const batch = db.batch();
+                
+                for (let i = 0; i < totalMonths; i++) {
+                    const dateObj = new Date(baseDateStr);
+                    dateObj.setMonth(dateObj.getMonth() + i);
+                    
+                    let dd = String(dateObj.getDate()).padStart(2, '0');
+                    let mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    let yyyy = dateObj.getFullYear();
+                    const splitDateStr = `${yyyy}-${mm}-${dd}`;
+
+                    const data = {
+                        groupId: groupId, 
+                        date: splitDateStr,
+                        card: cardVal,
+                        category: categoryVal, 
+                        store: storeVal,
+                        item: itemVal,
+                        
+                        isInstallment: isInstall,
+                        totalMonths: totalMonths,
+                        currentMonth: i + 1, 
+                        originalAmount: totalAmount, 
+                        
+                        amount: i === 0 ? monthlyAmount + remainder : monthlyAmount,
+                        createdAt: createdAt
+                    };
+
+                    const docRef = db.collection('expenses').doc(); 
+                    batch.set(docRef, data);
+                }
+
+                await batch.commit();
+
+                // 뷰를 입력 날짜 월로 이동
+                const inputMonth = baseDateStr.substring(0, 7);
                 if(monthSelectorEl.value !== inputMonth) {
                     monthSelectorEl.value = inputMonth;
                     updateAll();
                 }
 
-                itemEl.value = '';
-                storeEl.value = '';
-                amountEl.value = '';
+                // 완료 후 입력창 초기화
+                cancelEdit(); 
                 storeEl.focus();
+
             } catch (error) {
-                console.error("데이터 저장 중 에러 발생:", error);
-                alert("데이터 저장에 실패했습니다. Firebase 설정을 확인해주세요.");
+                console.error("저장 에러:", error);
+                alert("저장에 실패했습니다.");
             }
         });
 
-        // 공통 필터링 로직 함수
         function getFilteredTransactions() {
             const selectedMonth = monthSelectorEl.value;
             const cardFilter = filterCardEl.value;
@@ -405,20 +487,13 @@
 
             return transactions.filter(t => {
                 if (!t.date.startsWith(selectedMonth)) return false;
-                
-                if (cardFilter !== 'all') {
-                    if (!t.card.includes(cardFilter)) return false;
-                }
-                
+                if (cardFilter !== 'all' && !t.card.includes(cardFilter)) return false;
                 if (categoryFilter !== 'all' && t.category !== categoryFilter) return false;
-                
                 if (amountFilter && !(t.amount || 0).toString().includes(amountFilter)) return false;
-                
                 return true;
             });
         }
 
-        // 화면 리스트 렌더링 함수
         function updateDOM() {
             listEl.innerHTML = '';
             
@@ -429,32 +504,44 @@
                 return;
             }
 
-            filteredTransactions.forEach(transaction => {
+            filteredTransactions.forEach(t => {
                 const li = document.createElement('li');
                 li.className = 'grid-row';
                 
-                const displayCardName = transaction.card ? transaction.card.replace(/^[0-9]+\.\s*/, '') : '카드없음';
-                const categoryName = transaction.category || '기타';
-                const storeName = transaction.store || '-';
-                const itemName = transaction.item || '-'; 
+                const displayCardName = t.card ? t.card.replace(/^[0-9]+\.\s*/, '') : '카드없음';
+                const categoryName = t.category || '기타';
+                const storeName = t.store || '-';
+                
+                let itemHtml = `<span class="item-name">${t.item || '-'}</span>`;
+                if (t.isInstallment && t.totalMonths > 1) {
+                    itemHtml += `<span class="install-badge">${t.currentMonth}/${t.totalMonths}회차</span>`;
+                }
+                
+                const currentAmountStr = (t.amount || 0).toLocaleString();
+                let amountHtml = `<span class="amount">-${currentAmountStr}원</span>`;
+                if (t.isInstallment && t.originalAmount) {
+                    amountHtml += `<span class="original-amount">(원금: ${t.originalAmount.toLocaleString()}원)</span>`;
+                }
+
+                // 구 버전 데이터(t.groupId가 없는) 호환 처리
+                const identifier = t.groupId || t.id;
 
                 li.innerHTML = `
-                    <span class="date">${transaction.date}</span>
+                    <span class="date">${t.date}</span>
                     <span class="card-badge">${displayCardName}</span>
                     <span class="category-badge">${categoryName}</span>
                     <span class="store">${storeName}</span>
-                    <span class="item">${itemName}</span>
-                    <span class="amount">-${(transaction.amount || 0).toLocaleString()}원</span>
+                    <div class="item-cell">${itemHtml}</div>
+                    <div class="amount-cell">${amountHtml}</div>
                     <div class="action-btns">
-                        <button class="edit-btn" onclick="editTransaction('${transaction.id}')">수정</button>
-                        <button class="delete-btn" onclick="deleteTransaction('${transaction.id}')">삭제</button>
+                        <button class="edit-btn" onclick="editTransaction('${identifier}')">수정</button>
+                        <button class="delete-btn" onclick="deleteTransaction('${identifier}')">삭제</button>
                     </div>
                 `;
                 listEl.appendChild(li);
             });
         }
 
-        // 총계 및 우측 통계 패널 업데이트 함수
         function updateValues() {
             const filteredTransactions = getFilteredTransactions();
             
@@ -481,10 +568,8 @@
             renderStats(storeMap, storeStatsEl);
         }
 
-        // 통계 데이터를 정렬하여 리스트에 출력하는 재사용 함수
         function renderStats(dataMap, targetElement) {
             targetElement.innerHTML = '';
-            
             const sortedData = Object.entries(dataMap).sort((a, b) => b[1] - a[1]);
 
             if (sortedData.length === 0) {
@@ -494,50 +579,82 @@
 
             sortedData.forEach(([name, amount]) => {
                 targetElement.innerHTML += `
-                    <li>
-                        <span class="stat-name">${name}</span>
-                        <span class="stat-amount">-${amount.toLocaleString()}원</span>
-                    </li>
+                    <li><span class="stat-name">${name}</span><span class="stat-amount">-${amount.toLocaleString()}원</span></li>
                 `;
             });
         }
 
-        // 전역 함수 등록 (수정, 삭제 등)
-        window.editTransaction = function(id) {
-            const transaction = transactions.find(t => t.id === id);
-            if (!transaction) return;
+        window.editTransaction = function(identifier) {
+            // 새 데이터(그룹) 조회 시도 후, 없으면 구 데이터(단일) 조회로 호환 처리
+            let groupData = transactions.filter(t => t.groupId === identifier).sort((a, b) => new Date(a.date) - new Date(b.date));
+            if (groupData.length === 0) {
+                groupData = transactions.filter(t => t.id === identifier);
+            }
+            if (groupData.length === 0) return;
+            const t = groupData[0];
 
-            dateEl.value = transaction.date;
-            cardEl.value = transaction.card;
-            categoryEl.value = transaction.category;
-            storeEl.value = transaction.store || '';
-            itemEl.value = transaction.item || '';
-            amountEl.value = transaction.amount;
+            dateEl.value = t.date;
+            cardEl.value = t.card;
+            categoryEl.value = t.category;
+            storeEl.value = t.store || '';
+            itemEl.value = t.item || '';
+            
+            amountEl.value = t.isInstallment ? t.originalAmount : t.amount;
+            if (t.isInstallment) {
+                payTypeEl.value = 'install';
+                installMonthsEl.classList.add('show');
+                installMonthsEl.value = t.totalMonths;
+                installMonthsEl.required = true;
+            } else {
+                payTypeEl.value = 'lump';
+                installMonthsEl.classList.remove('show');
+                installMonthsEl.value = '';
+                installMonthsEl.required = false;
+            }
 
-            editingId = id;
-            submitBtn.innerText = '내역 수정하기';
+            editingGroupId = identifier;
+            submitBtn.innerText = '내역 전체 수정하기';
             submitBtn.classList.add('edit-mode');
             cancelBtn.classList.add('show');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
         window.cancelEdit = function() {
-            editingId = null;
+            editingGroupId = null;
             submitBtn.innerText = '지출 내역 추가하기';
             submitBtn.classList.remove('edit-mode');
             cancelBtn.classList.remove('show');
             itemEl.value = '';
             storeEl.value = '';
             amountEl.value = '';
+            payTypeEl.value = 'lump';
+            installMonthsEl.classList.remove('show');
+            installMonthsEl.value = '';
+            installMonthsEl.required = false;
         };
 
-        window.deleteTransaction = async function(id) {
-            if(confirm('정말 이 내역을 삭제하시겠습니까?')) {
+        window.deleteTransaction = async function(identifier) {
+            if(confirm('할부 내역일 경우 전체 회차가 함께 삭제됩니다.\n(일반 내역은 해당 건만 삭제됩니다)\n정말 삭제하시겠습니까?')) {
                 try {
-                    if(editingId === id) cancelEdit();
-                    await db.collection('expenses').doc(id).delete();
+                    if(editingGroupId === identifier) cancelEdit();
+                    
+                    const target = transactions.find(t => t.groupId === identifier || t.id === identifier);
+                    if (!target) return;
+
+                    if (target.groupId) {
+                        const batch = db.batch();
+                        const querySnapshot = await db.collection('expenses').where("groupId", "==", target.groupId).get();
+                        querySnapshot.forEach(doc => {
+                            batch.delete(doc.ref);
+                        });
+                        await batch.commit();
+                    } else {
+                        // 구버전 단일 데이터 삭제
+                        await db.collection('expenses').doc(target.id).delete();
+                    }
+
                 } catch (error) {
-                    console.error("데이터 삭제 중 에러 발생:", error);
+                    console.error("삭제 에러:", error);
                     alert("삭제에 실패했습니다.");
                 }
             }
